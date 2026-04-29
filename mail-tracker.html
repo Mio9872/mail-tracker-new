@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="メール管理">
+<meta name="theme-color" content="#0f0f0f">
+<title>メール管理</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --surface2: #222222;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #f0ede8;
+    --text2: #8a8680;
+    --text3: #555250;
+    --red: #e05a4e;
+    --green: #4ea87a;
+    --radius: 14px;
+    --radius-sm: 8px;
+    --safe-top: env(safe-area-inset-top, 44px);
+    --safe-bottom: env(safe-area-inset-bottom, 20px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: var(--text); min-height: 100svh; overflow-x: hidden; }
+  .status-bar-spacer { height: var(--safe-top); background: var(--bg); }
+  .header { padding: 16px 20px 12px; display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 0.5px solid var(--border); }
+  .header h1 { font-size: 22px; font-weight: 500; letter-spacing: -0.3px; }
+  .header .date { font-size: 12px; color: var(--text2); margin-top: 2px; font-family: 'DM Mono', monospace; }
+  .sync-btn { display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: 'Noto Sans JP', sans-serif; padding: 7px 12px; background: var(--surface2); border: 0.5px solid var(--border2); border-radius: 20px; color: var(--text); cursor: pointer; transition: opacity 0.15s; }
+  .sync-btn:active { opacity: 0.6; }
+  .sync-btn .spinner { width: 12px; height: 12px; border: 1.5px solid var(--border2); border-top-color: var(--text); border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
+  .sync-btn.loading .spinner { display: inline-block; }
+  .sync-btn.loading .sync-label { display: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 14px 16px; }
+  .stat { background: var(--surface); border-radius: var(--radius-sm); padding: 12px 10px; text-align: center; border: 0.5px solid var(--border); }
+  .stat-n { font-size: 28px; font-weight: 400; font-family: 'DM Mono', monospace; line-height: 1; }
+  .stat-n.red { color: var(--red); }
+  .stat-n.green { color: var(--green); }
+  .stat-lbl { font-size: 10px; color: var(--text2); margin-top: 4px; }
+  .notify-bar { margin: 0 16px 12px; background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; }
+  .notify-times { display: flex; gap: 6px; }
+  .notify-pill { font-size: 11px; font-family: 'DM Mono', monospace; padding: 3px 8px; border-radius: 20px; background: var(--surface2); border: 0.5px solid var(--border); color: var(--text2); display: flex; align-items: center; gap: 4px; }
+  .notify-pill.active { border-color: var(--green); color: var(--green); }
+  .notify-pill .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+  .notify-next { font-size: 11px; color: var(--text3); }
+  .section-label { font-size: 11px; color: var(--text3); padding: 0 20px 8px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .mail-list { padding: 0 16px; display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+  .mail-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 12px 14px; display: flex; align-items: center; gap: 12px; }
+  .mail-card.urgent { border-left: 3px solid var(--red); border-radius: 0 var(--radius) var(--radius) 0; background: rgba(224,90,78,0.05); }
+  .mail-card.done { opacity: 0.4; }
+  .avatar { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; flex-shrink: 0; }
+  .mail-body { flex: 1; min-width: 0; }
+  .mail-sender { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mail-subject { font-size: 12px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  .mail-meta { font-size: 11px; color: var(--text3); margin-top: 3px; font-family: 'DM Mono', monospace; }
+  .mail-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
+  .badge { font-size: 10px; padding: 3px 7px; border-radius: 20px; font-weight: 500; white-space: nowrap; }
+  .badge.need { background: rgba(224,90,78,0.15); color: var(--red); border: 0.5px solid rgba(224,90,78,0.3); }
+  .badge.replied { background: rgba(78,168,122,0.15); color: var(--green); border: 0.5px solid rgba(78,168,122,0.3); }
+  .badge.no-need { background: var(--surface2); color: var(--text3); border: 0.5px solid var(--border); }
+  .action-btn { font-size: 11px; padding: 4px 9px; background: transparent; border: 0.5px solid var(--border2); border-radius: 6px; color: var(--text2); cursor: pointer; font-family: 'Noto Sans JP', sans-serif; }
+  .action-btn:active { opacity: 0.6; }
+  .del-btn { background: none; border: none; color: var(--text3); font-size: 14px; cursor: pointer; padding: 2px; line-height: 1; }
+  .del-btn:active { color: var(--red); }
+  .empty { text-align: center; padding: 2.5rem 1rem; color: var(--text3); font-size: 14px; line-height: 2; }
+  .add-form { margin: 0 16px 16px; background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 14px; }
+  .add-form input, .add-form select { width: 100%; background: var(--surface2); border: 0.5px solid var(--border2); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 15px; color: var(--text); font-family: 'Noto Sans JP', sans-serif; margin-bottom: 8px; -webkit-appearance: none; outline: none; }
+  .add-form input::placeholder { color: var(--text3); }
+  .add-form select option { background: #222; }
+  .add-btn { width: 100%; background: var(--surface2); border: 0.5px solid var(--border2); border-radius: var(--radius-sm); padding: 11px; font-size: 14px; color: var(--text); font-family: 'Noto Sans JP', sans-serif; cursor: pointer; }
+  .add-btn:active { opacity: 0.6; }
+  .toast { position: fixed; bottom: calc(var(--safe-bottom) + 16px); left: 50%; transform: translateX(-50%) translateY(80px); background: var(--surface2); border: 0.5px solid var(--border2); border-radius: 20px; padding: 10px 18px; font-size: 13px; color: var(--text); transition: transform 0.3s ease; z-index: 100; white-space: nowrap; pointer-events: none; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .bottom-spacer { height: calc(var(--safe-bottom) + 20px); }
+</style>
+</head>
+<body>
+<div class="status-bar-spacer"></div>
+<div class="header">
+  <div>
+    <h1>メール管理</h1>
+    <div class="date" id="today-date"></div>
+  </div>
+  <button class="sync-btn" id="sync-btn" onclick="fetchGmail()">
+    <div class="spinner"></div>
+    <span class="sync-label">Gmail 取得</span>
+  </button>
+</div>
+<div class="stats">
+  <div class="stat"><div class="stat-n" id="stat-total">0</div><div class="stat-lbl">今日の受信</div></div>
+  <div class="stat"><div class="stat-n red" id="stat-need">0</div><div class="stat-lbl">返信待ち</div></div>
+  <div class="stat"><div class="stat-n green" id="stat-done">0</div><div class="stat-lbl">返信済み</div></div>
+</div>
+<div class="notify-bar">
+  <div class="notify-times" id="notify-times"></div>
+  <div class="notify-next" id="notify-next"></div>
+</div>
+<div class="section-label">メール一覧</div>
+<div class="mail-list" id="mail-list">
+  <div class="empty">右上のボタンでGmailから取得<br>または下から手動で追加</div>
+</div>
+<div class="section-label">手動で追加</div>
+<div class="add-form">
+  <input type="text" id="inp-sender" placeholder="送信者名">
+  <input type="text" id="inp-subject" placeholder="件名">
+  <select id="inp-reply">
+    <option value="need">返信が必要</option>
+    <option value="no-need">返信不要</option>
+  </select>
+  <button class="add-btn" onclick="addMail()">+ 追加する</button>
+</div>
+<div class="bottom-spacer"></div>
+<div class="toast" id="toast"></div>
+<script>
+const GAS_URL = 'https://script.google.com/a/macros/appier.com/s/AKfycbx6CgVTHhTPicTMM_NfqnFzTUGg1kKnsqVj-dmNTx6YYZ7w-hdqKMcvYbB7rhJP0iUq/exec';
+const COLORS = [
+  { bg: 'rgba(74,143,201,0.18)', color: '#4a8fc9' },
+  { bg: 'rgba(78,168,122,0.18)', color: '#4ea87a' },
+  { bg: 'rgba(163,115,201,0.18)', color: '#a373c9' },
+  { bg: 'rgba(201,148,74,0.18)', color: '#c9944a' },
+  { bg: 'rgba(224,90,78,0.18)', color: '#e05a4e' },
+];
+let mails = [];
+let notifScheduled = {};
+function getInitials(name) { return (name || '?').replace(/<[^>]+>/g, '').replace(/["']/g, '').trim().slice(0, 2).toUpperCase(); }
+function getColor(i) { return COLORS[i % COLORS.length]; }
+function fmtTime(ts) { return new Date(ts).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' }); }
+function getTodayKey() { return new Date().toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' }); }
+function setDateLabel() { document.getElementById('today-date').textContent = new Date().toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' }); }
+function updateStats() {
+  document.getElementById('stat-total').textContent = mails.length;
+  document.getElementById('stat-need').textContent = mails.filter(m => m.s === 'need').length;
+  document.getElementById('stat-done').textContent = mails.filter(m => m.s === 'replied').length;
+}
+function renderMails() {
+  const el = document.getElementById('mail-list');
+  if (!mails.length) { el.innerHTML = '<div class="empty">右上のボタンでGmailから取得<br>または下から手動で追加</div>'; updateStats(); return; }
+  el.innerHTML = mails.map((m, i) => {
+    const c = getColor(i);
+    const urgent = m.s === 'need', done = m.s === 'replied';
+    const badge = m.s === 'need' ? '<span class="badge need">返信待ち</span>' : m.s === 'replied' ? '<span class="badge replied">返信済み</span>' : '<span class="badge no-need">返信不要</span>';
+    const btn = urgent ? `<button class="action-btn" onclick="markStatus(${i},'replied')">返信済み</button>` : m.s === 'no-need' ? `<button class="action-btn" onclick="markStatus(${i},'need')">要返信</button>` : '';
+    return `<div class="mail-card ${urgent?'urgent':''} ${done?'done':''}"><div class="avatar" style="background:${c.bg};color:${c.color};">${getInitials(m.sender)}</div><div class="mail-body"><div class="mail-sender">${m.sender||'（不明）'}</div><div class="mail-subject">${m.subject||'（件名なし）'}</div><div class="mail-meta">${fmtTime(m.ts)}${m.src==='gmail'?' · Gmail':''}</div></div><div class="mail-right">${badge}${btn}<button class="del-btn" onclick="delMail(${i})">✕</button></div></div>`;
+  }).join('');
+  updateStats();
+}
+function markStatus(i, s) { mails[i].s = s; save(); renderMails(); }
+function delMail(i) { mails.splice(i, 1); save(); renderMails(); }
+function addMail() {
+  const sender = document.getElementById('inp-sender').value.trim();
+  const subject = document.getElementById('inp-subject').value.trim();
+  const s = document.getElementById('inp-reply').value;
+  if (!sender && !subject) { showToast('送信者か件名を入力してください'); return; }
+  mails.unshift({ sender, subject, s, ts: Date.now(), src: 'manual' });
+  document.getElementById('inp-sender').value = '';
+  document.getElementById('inp-subject').value = '';
+  save(); renderMails(); showToast('追加しました');
+}
+function save() { try { localStorage.setItem('mails_' + getTodayKey(), JSON.stringify(mails)); } catch(e) {} }
+function load() { try { const d = localStorage.getItem('mails_' + getTodayKey()); mails = d ? JSON.parse(d) : []; } catch(e) { mails = []; } renderMails(); }
+function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2500); }
+async function fetchGmail() {
+  const btn = document.getElementById('sync-btn');
+  btn.classList.add('loading');
+  try {
+    const res = await fetch(GAS_URL);
+    const fetched = await res.json();
+    if (!Array.isArray(fetched)) throw new Error('invalid');
+    const existing = new Set(mails.filter(m => m.src === 'gmail').map(m => m.sender + '|' + m.subject));
+    let added = 0;
+    fetched.forEach(m => {
+      const k = (m.sender||'') + '|' + (m.subject||'');
+      if (!existing.has(k)) { mails.unshift({ sender: m.sender||'（不明）', subject: m.subject||'（件名なし）', s: 'need', ts: m.ts||Date.now(), src: 'gmail' }); added++; }
+    });
+    mails.sort((a, b) => b.ts - a.ts);
+    save(); renderMails();
+    showToast(fetched.length === 0 ? '今日の受信メールはありません' : `${fetched.length}件取得（${added}件追加）`);
+  } catch(e) { showToast('取得に失敗しました。再試行してください'); }
+  btn.classList.remove('loading');
+}
+function renderNotify() {
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+  const times = [11, 15, 18].map(h => { const t = new Date(now); t.setHours(h, 0, 0, 0); return { h, diff: t - now, past: t - now < 0 }; });
+  document.getElementById('notify-times').innerHTML = times.map(t => `<div class="notify-pill ${t.past?'':'active'}"><span class="dot"></span>${t.h}:00</div>`).join('');
+  const next = times.find(t => !t.past);
+  const el = document.getElementById('notify-next');
+  if (next) { const m = Math.round(next.diff / 60000); el.textContent = `次：${next.h}:00（${m >= 60 ? Math.floor(m/60)+'時間' : ''}${m%60}分後）`; }
+  else { el.textContent = '本日完了'; }
+}
+function scheduleNotifs() {
+  if (!('Notification' in window)) return;
+  Notification.requestPermission().then(p => {
+    if (p !== 'granted') return;
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+    [11, 15, 18].forEach(h => {
+      const t = new Date(now); t.setHours(h, 0, 0, 0);
+      const diff = t - now;
+      if (diff > 0 && !notifScheduled[h]) { notifScheduled[h] = true; setTimeout(() => { const need = mails.filter(m => m.s === 'need').length; new Notification('メールリマインダー', { body: `今日 ${mails.length} 件受信 / 返信待ち ${need} 件` }); }, diff); }
+    });
+  });
+}
+setDateLabel(); load(); renderNotify(); scheduleNotifs(); setInterval(renderNotify, 60000);
+</script>
+</body>
+</html>
